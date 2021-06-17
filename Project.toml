@@ -1,0 +1,13 @@
+name = "TintiNet"
+uuid = "a4a8f655-1bd0-4e5a-8951-371f4b0f0dac"
+authors = ["Guilherme Fahur Bottino <gfahurbottino@gmail.com>", "Leandro Martínez <leandromartinez98@gmail.com>"]
+version = "0.1.0"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
