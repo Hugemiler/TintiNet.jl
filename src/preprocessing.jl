@@ -16,7 +16,7 @@ pad_aa_seq(v::Vector{String}, n::Integer, p::String) = [v; fill(p, max(n - lengt
     This function applies `pad_aa_seq` to every element of `batchofseqs` with arguments
     `n` and `p` (default 120 and \"-\")
 """
-preprocess(batchofseqs::Vector{Vector{String}}, n = 192, p = "-") = [ pad_aa_seq([singleseq...], n, "-") for singleseq in batchofseqs ]
+preprocess(batchofseqs::Vector{Vector{String}}, n = 128, p = "-") = [ pad_aa_seq([singleseq...], n, "-") for singleseq in batchofseqs ]
 
 """
     prepare_mask(batchofseqs::Vector{Vector{String}})
@@ -25,9 +25,9 @@ preprocess(batchofseqs::Vector{Vector{String}}, n = 192, p = "-") = [ pad_aa_seq
     The mask is an `Array{Float}` filled with ones in positions different from `unk` and zeros otherwise.
     This function makes use of `Transformers.Basic.getmask`
 """
-function prepare_mask(batchofseqs::Vector{Vector{String}})
+function prepare_mask(batchofseqs::Vector{Vector{String}}, seqlen)
 
-    mask = getmask(preprocess(batchofseqs)) # Uses getmask() from Transformers.Basic
+    mask = getmask(preprocess(batchofseqs, seqlen)) # Uses getmask() from Transformers.Basic
 
     for i in 1:length(batchofseqs)
         for j in 1:length(batchofseqs[i])

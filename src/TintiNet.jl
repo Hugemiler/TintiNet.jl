@@ -4,10 +4,9 @@ module TintiNet
     # 0. Package Dependencies
     #####    
 
-    using CUDA
-    using Dates, Printf, Random, BSON, JSON, Flux;
+    using CUDA, Flux, Transformers, JSON, BSON, Random, Dates, Printf
     using IterTools: ncycle;
-    using Transformers, Transformers.Basic, Transformers.Pretrain, Transformers.Datasets, Transformers.BidirectionalEncoder;
+    using Transformers.Basic, Transformers.Pretrain, Transformers.Stacks, Transformers.Datasets, Transformers.BidirectionalEncoder
     using BSON: @load, @save
     using Flux: @functor, onehot, onecold, mse, shuffle, sigmoid, gradient, unsqueeze
     using Flux.Optimise: update!
