@@ -24,8 +24,8 @@ Flux.@nograd generic_smooth
     This function receives a `Vector{String}` `v` and returns a same-length `Vector{String}`
     with every element of `v` padded to length `n` with symbol `p`
 """
-function train_loss(model, x, y, mask, smooth)
-    labels = smooth(onehot(ss3Vocab, y))
+function train_loss(model, x, y, mask, smooth, structureVocab)
+    labels = smooth(onehot(structureVocab, y))
     l = Transformers.Basic.logcrossentropy(model(x), labels, mask)
     return(l)
 end
@@ -36,8 +36,8 @@ end
     This function receives a `Vector{String}` `v` and returns a same-length `Vector{String}`
     with every element of `v` padded to length `n` with symbol `p`
 """
-function eval_loss(predictions, y, mask, smooth)
-    labels = smooth(onehot(ss3Vocab, y))
+function eval_loss(predictions, y, mask, smooth, structureVocab)
+    labels = smooth(onehot(structureVocab, y))
     l = Transformers.Basic.logcrossentropy(predictions, labels, mask)
     return(l)
 end
