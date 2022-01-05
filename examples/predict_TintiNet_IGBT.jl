@@ -31,7 +31,7 @@ output_path = ARGS[2] ## Second argument is the directory to write the outputs
 # 1. Obtaining the data
 #####
 
-headers, sequences = read_sequences_from_file(seq_file_path, hyperpar["max_seq_len"]; filetype="fasta")
+headers, sequences = read_sequences_from_file(inputfile_path, hyperpar["max_seq_len"]; filetype="fasta")
 
 #####
 # 2. Loading the saved models
