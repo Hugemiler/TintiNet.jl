@@ -1,12 +1,6 @@
 #####
-#
-# Example script for TintiNet.jl
-# Model IGBT (InceptGOR-Bert): 3-state SS Classifier
-#
-# To run training, revise your code and uncomment the last line.
-# On slower GPUs, an epoch may take several minutes with the default configuration.
-# Adjust model size using the `hyperpar` and `config` dictionaries.
-#
+# Example evaluation script for TintiNet.jl
+# Model IGBT (InceptGOR-Bert): 3-state SS Classifier and PHI, PSI and ACC regressor.
 #####
 
 #####
@@ -22,48 +16,40 @@ using Flux.Optimise: update!
 using Statistics: mean, std
 
 using TintiNet
-dformat = Dates.DateFormat("yyyy-m-d-HH-MM-SS")
 Random.seed!(102528)
-
-##
-# Algorithm Hyperparameters
 
 hyperpar = Dict(
     "max_seq_len"       => 128,     # Maximum sequence length on the model (default 192)
     "batch_size"        => 128,     # Batch size for training (default 128)
 )
 
-#####
-# 2. Obtaining and shaping the data
-#####
-
-## 2.2. Testing sequences, structures and lengths
-
-testing_set_datapath = "/home/guilherme/Documentos/TINTI/ext/data_folds_128/fold_01_128/fold_01_128_test_dataset.json"
-
-open(testing_set_datapath, "r") do file
-    global entries = JSON.parse(file)
-end
-
-sequences = [ string.(entries[i]["fasta_seq"]) for i in 1:length(entries) ]
+inputfile_path = ARGS[1] ## First argument is the location of the sequence input file
+output_path = ARGS[2] ## Second argument is the directory to write the outputs
+#print_header_prediction()
 
 #####
-# 3. Loading the saved models
+# 1. Obtaining the data
 #####
 
-@load "./TintiNet_Classifier_checkpoint.bson" checkpoint_model
+headers, sequences = read_sequences_from_file(seq_file_path, hyperpar["max_seq_len"]; filetype="fasta")
+
+#####
+# 2. Loading the saved models
+#####
+
+@load "./example_classifier_model.bson" checkpoint_model
 classifier_model = checkpoint_model |> gpu
 Flux.testmode!(classifier_model)
 
-@load "./TintiNet_Regressor_checkpoint.bson" checkpoint_model
+@load "./example_regressor_model.bson" checkpoint_model
 regressor_model = checkpoint_model |> gpu
 Flux.testmode!(regressor_model)
 
 #####
-# 4. Model evaluation
+# 3. Model evaluation
 #####
 
-ss_predictions = compute_predictions(
+ss_predictions = compute_classifier_predictions(
     classifier_model,
     sequences;
     batched=true,
@@ -80,18 +66,7 @@ ss_predictions = compute_predictions(
     sleep_time_seconds=0.01)
 
 #####
-# 5. Saving Prediction Results as JSON file
+# 4. Saving Prediction Results
 #####
 
-for i in 1:length(sequences)
-
-    entries[i]["tinti_ss3_prediction"] = ss_predictions[i]
-    entries[i]["tinti_phi_prediction"] = phi_predictions[i]
-    entries[i]["tinti_psi_prediction"] = psi_predictions[i]
-    entries[i]["tinti_acc_prediction"] = acc_predictions[i]
-
-end
-
-open("./TintiNet_prediction_results.json", "w") do dbFile
-    JSON.print(dbFile, entries)
-end
+write_csv_predictions(output_path, headers, sequences, ss_predictions, phi_predictions, psi_predictions, acc_predictions)

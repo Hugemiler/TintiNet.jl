@@ -1,7 +1,7 @@
 #####
 #
 # Example script for TintiNet.jl
-# Model IGBT (InceptGOR-Bert): 3-state SS Classifier
+# Model IGBT (InceptGOR-Bert): 3-state SS Regressor
 #
 # To run training, revise your code and uncomment the last line.
 # On slower GPUs, an epoch may take several minutes with the default configuration.
@@ -13,7 +13,7 @@
 # 0. Loading Packages and defining Hyperparameters
 #####
 
-using CUDA, Flux, Transformers, JSON, BSON, Random, Dates, Printf
+using CUDA, Zygote, Flux, Transformers, JSON, BSON, Random, Dates, Printf
 using IterTools: ncycle;
 using Transformers.Basic, Transformers.Pretrain, Transformers.Datasets, Transformers.Stacks, Transformers.BidirectionalEncoder
 using BSON: @load, @save
@@ -31,7 +31,7 @@ Random.seed!(102528)
 hyperpar = Dict(
     "max_seq_len"       => 128,     # Maximum sequence length on the model (default 192)
     "batch_size"        => 128,     # Batch size for training (default 128)
-    "number_of_epochs"  => 1000,      # Number of epochs for training (10 for the example file)
+    "number_of_epochs"  => 200,     # Number of epochs for training (10 for the example file)
     "learning_rate"     => 1e-3,    # Learning rate for optimizer (default 0.001)
     "smooth_epsilon"    => 1e-6     # Small value to smooth onehot result before logcrossentropy (default 1e-6)
 )
@@ -41,8 +41,8 @@ hyperpar = Dict(
 
 const config = Dict(
   "input_vocab_size"                => 22,      # Size of the SEQUENCE/FASTA vocabulary, usually 20 aminoacids + "X" + "-" 
-  "output_vocab_size"               => 4,       # Size of the STRUCTURE/SS3 vocabulary, usually 3 classes + "-" 
-  "embed_dimension"                 => 128,      # Size of the individual Embed vectors
+  "output_size"                     => 5,       # Output size. Usually 5 due to sin/cos phi, sin/cos psi and acc.
+  "embed_dimension"                 => 128,     # Size of the individual Embed vectors
   "bert_num_hidden_layers"          => 2,       # Number of consecutive Transformer layers on the BERT encoder
   "bert_transformer_layer_heads"    => 8,       # Number of heads in each Transformer layer
   "bert_transformer_layer_hidden"   => 128,     # Hidden size of the positionwise linear layer in each Transformer layer
@@ -57,6 +57,8 @@ const config = Dict(
 
 ## 2.1. Training sequences, structures and lengths
 
+remapnan(x) = x == nothing ? missing : x
+
 training_set_datapath = "../data/fold01training_dataset.json"
 
 open(training_set_datapath, "r") do file
@@ -65,19 +67,25 @@ open(training_set_datapath, "r") do file
     num_entries = length(entries)
     
     parsed_sequences = Vector{Vector{String}}(undef, num_entries)
-    parsed_structures = Vector{Vector{String}}(undef, num_entries)
+    parsed_phis = Vector{Vector{Union{Missing, Float64}}}(undef, num_entries)
+    parsed_psis = Vector{Vector{Union{Missing, Float64}}}(undef, num_entries)
+    parsed_accs = Vector{Vector{Union{Missing, Float64}}}(undef, num_entries)
     parsed_lengths = Vector{Int}(undef, num_entries)
 
     for (i,j) in enumerate(entries)
         parsed_sequences[i] = string.(j["fasta_seq"])
-        parsed_structures[i] = string.(j["dssp_ss3"])
+        parsed_phis[i] = map(remapnan, j["dssp_phi"])
+        parsed_psis[i] = map(remapnan, j["dssp_psi"])
+        parsed_accs[i] = map(remapnan, j["dssp_acc"])
         parsed_lengths[i] = length(parsed_sequences[i])
     end
 
     order_idx = sortperm(parsed_lengths)
 
     global train_sequences_ordered = parsed_sequences[order_idx]
-    global train_structures_ordered = parsed_structures[order_idx]
+    global train_phis_ordered = parsed_phis[order_idx]
+    global train_psis_ordered = parsed_psis[order_idx]
+    global train_accs_ordered = parsed_accs[order_idx]
     global train_lengths_ordered = parsed_lengths[order_idx]
     
 end
@@ -87,36 +95,39 @@ end
 testing_set_datapath = "../data/fold01testing_dataset.json"
 
 open(testing_set_datapath, "r") do file
-    
+
     entries = JSON.parse(file)
     num_entries = length(entries)
     
     parsed_sequences = Vector{Vector{String}}(undef, num_entries)
-    parsed_structures = Vector{Vector{String}}(undef, num_entries)
+    parsed_phis = Vector{Vector{Union{Missing, Float64}}}(undef, num_entries)
+    parsed_psis = Vector{Vector{Union{Missing, Float64}}}(undef, num_entries)
+    parsed_accs = Vector{Vector{Union{Missing, Float64}}}(undef, num_entries)
     parsed_lengths = Vector{Int}(undef, num_entries)
 
     for (i,j) in enumerate(entries)
         parsed_sequences[i] = string.(j["fasta_seq"])
-        parsed_structures[i] = string.(j["dssp_ss3"])
+        parsed_phis[i] = map(remapnan, j["dssp_phi"])
+        parsed_psis[i] = map(remapnan, j["dssp_psi"])
+        parsed_accs[i] = map(remapnan, j["dssp_acc"])
         parsed_lengths[i] = length(parsed_sequences[i])
     end
 
     order_idx = sortperm(parsed_lengths)
 
     global test_sequences_ordered = parsed_sequences[order_idx]
-    global test_structures_ordered = parsed_structures[order_idx]
+    global test_phis_ordered = parsed_phis[order_idx]
+    global test_psis_ordered = parsed_psis[order_idx]
+    global test_accs_ordered = parsed_accs[order_idx]
     global test_lengths_ordered = parsed_lengths[order_idx]
     
 end
 
 ## 2.3. Lazy DataLoaders
 
-training_dataset = Flux.Data.DataLoader((train_sequences_ordered, train_structures_ordered, train_lengths_ordered); batchsize=hyperpar["batch_size"], shuffle=true)
-eval_train_dataset = Flux.Data.DataLoader((train_sequences_ordered, train_structures_ordered, train_lengths_ordered); batchsize=64,shuffle=false)
-eval_test_dataset = Flux.Data.DataLoader((test_sequences_ordered, test_structures_ordered, test_lengths_ordered); batchsize=64,shuffle=false)
-
-const train_acc_denominator = floor(sum(train_lengths_ordered)*0.96169) # Number of non-gap residues in the training samples. Adjust when using other dataset.
-const test_acc_denominator = floor(sum(test_lengths_ordered)*0.96265) # Number of non-gap residues in the testing samples. Adjust when using other dataset.
+training_dataset = Flux.Data.DataLoader((train_sequences_ordered, train_phis_ordered, train_psis_ordered, train_accs_ordered, train_lengths_ordered); batchsize=hyperpar["batch_size"], shuffle=true)
+eval_train_dataset = Flux.Data.DataLoader((train_sequences_ordered, train_phis_ordered, train_psis_ordered, train_accs_ordered, train_lengths_ordered); batchsize=64,shuffle=false)
+eval_test_dataset = Flux.Data.DataLoader((test_sequences_ordered, test_phis_ordered, test_psis_ordered, test_accs_ordered, test_lengths_ordered); batchsize=64,shuffle=false)
 
 #####
 # 3. Network Structure
@@ -154,39 +165,103 @@ model = Stack(
         # Detection Layers
         unsqueeze(3),
         bert_output -> permutedims(bert_output, [3,2,1,4]),
-        Conv((1,5), config["embed_dimension"] => config["detection_num_filters"], sigmoid; pad = (0,2)),
-        Conv((1,5), config["detection_num_filters"] => config["output_vocab_size"], identity; pad = (0,2)),
+        Conv((1,7), config["embed_dimension"] => config["detection_num_filters"], relu; pad = (0,3)),
+        Conv((1,7), config["detection_num_filters"] => config["detection_num_filters"], relu; pad = (0,3)),
+        Conv((1,7), config["detection_num_filters"] => config["output_size"], tanh; pad = (0,3)),
         x -> permutedims(x, [3,2,1,4]),
         x -> reshape(x, size(x,1), size(x,2), size(x,4)),
-        logsoftmax
     ) |> gpu
 
 #####
 # 4. Model training
 #####
 
-smooth(et) = generic_smooth(et, hyperpar["smooth_epsilon"], config["input_vocab_size"])     # Creates an alias for smooth() obeying our hyperparameters
 opt = Flux.Optimise.ADAM(hyperpar["learning_rate"])     # Initializes the ADAM optimizer
 ps = params(model)      # Collects model parameters
+
+function regressor_train_loss(model, x, y, mask)
+    sum( ( (model(x) .- y) .^ 2 ) .* mask ) / sum(mask)
+end
+
+function regressor_eval_loss(predictions, y, mask)
+    sum( ( (predictions .- y) .^ 2 ) .* mask ) / sum(mask)
+end
+
+function build_regressor_target_array(
+    phis::Vector{Vector{Union{Missing, Float64}}},
+    psis::Vector{Vector{Union{Missing, Float64}}},
+    accs::Vector{Vector{Union{Missing, Float64}}},
+    seqlen::Int64)
+
+    y = zeros(5, seqlen, length(phis))
+
+    for seq_i in 1:length(phis)
+        for aa_j in 1:length(phis[seq_i])
+            if !ismissing(phis[seq_i][aa_j])
+                y[1, aa_j, seq_i] = sind(phis[seq_i][aa_j])
+                y[2, aa_j, seq_i] = cosd(phis[seq_i][aa_j])
+            end
+
+            if !ismissing(psis[seq_i][aa_j])
+                y[3, aa_j, seq_i] = sind(psis[seq_i][aa_j])
+                y[4, aa_j, seq_i] = cosd(psis[seq_i][aa_j])
+            end
+
+            if !ismissing(accs[seq_i][aa_j])
+                y[5, aa_j, seq_i] = (accs[seq_i][aa_j] - 100) / 100
+            end
+
+        end
+    end
+
+    return(y)
+
+end
+
+function prepare_regressor_mask(batchofseqs::Vector{Vector{String}},
+                                phis::Vector{Vector{Union{Missing, Float64}}},
+                                psis::Vector{Vector{Union{Missing, Float64}}},
+                                accs::Vector{Vector{Union{Missing, Float64}}},
+                                seqlen::Int64)
+
+    mask = getmask(preprocess(batchofseqs, seqlen)) # Uses getmask() from Transformers.Basic
+
+    for i in 1:length(batchofseqs)
+        for j in 1:length(batchofseqs[i])
+            if ( ismissing(phis[i][j]) | ismissing(psis[i][j]) | ismissing(accs[i][j]) )
+                mask[1, j, i] = 0.0
+            end
+        end
+    end
+
+    return(mask)
+
+end
 
 #define training loop
 function train!(hyperpar, training_dataset,
                 model, ps, opt,
-                smooth=smooth, train_loss=train_loss, eval_loss=eval_loss, accuracy_hits=accuracy_hits,
+                train_loss=regressor_train_loss, eval_loss=regressor_eval_loss,
                 eval_train_dataset=eval_train_dataset, eval_test_dataset=eval_test_dataset,
-                fastaVocab=fastaVocab, ss3Vocab=ss3Vocab)
+                fastaVocab=fastaVocab)
     @info "start training"
     for epoch in 1:hyperpar["number_of_epochs"]
     i = 0
         for batch in training_dataset
             i += 1
-            x, y, l = batch
+            x, phi, psi, acc, len = batch
 
             train_x_processed = fastaVocab(preprocess(x, hyperpar["max_seq_len"])) |> gpu
-            train_y_processed = ss3Vocab(preprocess(y, hyperpar["max_seq_len"])) |> gpu
-            train_mask_processed = prepare_mask(y, hyperpar["max_seq_len"]) |> gpu
+            train_y_processed = build_regressor_target_array(phi, psi, acc, hyperpar["max_seq_len"]) |> gpu
+            train_mask_processed = prepare_regressor_mask(x, phi, psi, acc, hyperpar["max_seq_len"]) |> gpu
 
-            grad = gradient(()->train_loss(model, train_x_processed, train_y_processed, train_mask_processed, smooth), ps)
+#            grad = gradient(()->train_loss(model, train_x_processed, train_y_processed, train_mask_processed), ps)
+
+            l, back = Flux.pullback(ps) do
+                train_loss(model, train_x_processed, train_y_processed, train_mask_processed)
+            end
+            grad = back(Flux.Zygote.sensitivity(l))
+
             update!(opt, ps, grad)
 
             if i%64 == 0
@@ -196,52 +271,42 @@ function train!(hyperpar, training_dataset,
                 let 
                 batch_loss_ideal_train_set = 0.0
                 batch_loss_ideal_test_set = 0.0
-                batch_hits_ideal_train_set = 0
-                batch_hits_ideal_test_set = 0
 
                 for eval_train_batch in eval_train_dataset
 
-                    eval_x, eval_y, eval_length = eval_train_batch
+                    eval_x, eval_phi, eval_psi, eval_acc, eval_len = eval_train_batch
 
-                    eval_x_processed = fastaVocab(preprocess(eval_x, hyperpar["max_seq_len"])) |> gpu
-                    eval_y_processed = ss3Vocab(preprocess(eval_y, hyperpar["max_seq_len"])) |> gpu
-                    eval_mask_processed = prepare_mask(eval_y, hyperpar["max_seq_len"]) |> gpu
+                    eval_x_processed = fastaVocab(preprocess(x, hyperpar["max_seq_len"])) |> gpu
+                    eval_y_processed = build_regressor_target_array(phi, psi, acc, hyperpar["max_seq_len"]) |> gpu
+                    eval_mask_processed = prepare_regressor_mask(x, phi, psi, acc, hyperpar["max_seq_len"]) |> gpu
 
                     network_outputs = model(eval_x_processed)
-                    network_predictions = Flux.onecold(network_outputs)
-
-                    batch_loss_ideal_train_set += eval_loss(network_outputs, eval_y_processed, eval_mask_processed, smooth)
-                    batch_hits_ideal_train_set += accuracy_hits(cpu(network_predictions), cpu(eval_y_processed), eval_length)
+                    batch_loss_ideal_train_set += eval_loss(network_outputs, eval_y_processed, eval_mask_processed)
 
                 end #end IDEAL_TRAIN_EVAL loop
 
                 for eval_test_batch in eval_test_dataset
 
-                    eval_x, eval_y, eval_length = eval_test_batch
+                    eval_x, eval_phi, eval_psi, eval_acc, eval_len = eval_test_batch
 
-                    eval_x_processed = fastaVocab(preprocess(eval_x, hyperpar["max_seq_len"])) |> gpu
-                    eval_y_processed = ss3Vocab(preprocess(eval_y, hyperpar["max_seq_len"])) |> gpu
-                    eval_mask_processed = prepare_mask(eval_y, hyperpar["max_seq_len"]) |> gpu
+                    eval_x_processed = fastaVocab(preprocess(x, hyperpar["max_seq_len"])) |> gpu
+                    eval_y_processed = build_regressor_target_array(phi, psi, acc, hyperpar["max_seq_len"]) |> gpu
+                    eval_mask_processed = prepare_regressor_mask(x, phi, psi, acc, hyperpar["max_seq_len"]) |> gpu
 
                     network_outputs = model(eval_x_processed)
-                    network_predictions = Flux.onecold(network_outputs)
-
-                    batch_loss_ideal_test_set += eval_loss(network_outputs, eval_y_processed, eval_mask_processed, smooth)
-                    batch_hits_ideal_test_set += accuracy_hits(cpu(network_predictions), cpu(eval_y_processed), eval_length)
+                    batch_loss_ideal_test_set += eval_loss(network_outputs, eval_y_processed, eval_mask_processed)
                     
                 end #end IDEAL_TEST_EVAL loop
 
-            ideal_train_accuracy = batch_hits_ideal_train_set/train_acc_denominator
-            ideal_test_accuracy = batch_hits_ideal_test_set/test_acc_denominator
             ideal_train_loss = batch_loss_ideal_train_set
             ideal_test_loss = batch_loss_ideal_test_set
 
             Flux.trainmode!(model)
 
             checkpoint_model = cpu(model)
-            @save "TintiNet-IGBT-Classifier-Checkpoint-$(Dates.format(Dates.now(), dformat)).bson" checkpoint_model opt
-            @printf("Epoch: %d\t Batch: %d\t IdTrLos: %2.6f\t IdTsLoss: %2.6f\t IdTrAcc: %2.6f\t IdTsAcc: %2.6f\t Time: %s\n",
-                    epoch, i, ideal_train_loss, ideal_test_loss, ideal_train_accuracy, ideal_test_accuracy, Dates.format(now(), "yyyy-mm-dd HH:MM:SS"))
+            @save "TintiNet-IGBT-Regressor-Checkpoint-$(Dates.format(Dates.now(), dformat)).bson" checkpoint_model opt
+            @printf("Epoch: %d\t Batch: %d\t IdTrLos: %2.6f\t IdTsLoss: %2.6f\t Time: %s\n",
+                    epoch, i, ideal_train_loss, ideal_test_loss, Dates.format(now(), "yyyy-mm-dd HH:MM:SS"))
 
             end # end let
 
