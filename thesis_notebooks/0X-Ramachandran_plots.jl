@@ -26,7 +26,33 @@ transform!(merged_results_df, :tinti_psi_prediction => (x -> map(y -> ((y > 180.
 subset!(merged_results_df, :dssp_phi => x -> x .!= 0.0)
 
 # Ramachandran plots
-fig = Figure(; size = (2000,2000))
+
+# unique(merged_results_df.aa)
+# 21-element Vector{String}:
+# "N" - Asparagina - OK
+# "A" - Alanina - OK
+# "I" - Isoleucina - OK
+# "D" - Acido Aspartico - OK
+# "P" - Prolina - OK
+# "R" - Arginina - OK
+# "E" - Acido Glutamico - OK
+# "L" - Leucina - OK
+# "G" - Glicina - OK
+# "V" - Valina - OK
+# "K" - Lisina - OK
+# "S" - Serina - OK
+# "T" - Threonina - OK
+# "Y" - Tirosina - OK
+# "F" - Fenilalanina - 
+# "H" - Histidina - OK
+# "M" - Methionina - OK
+# "W" - Triptofano - OK
+# "Q" - Glutamina - OK
+# "C" - Cisteina - OK
+# "X" - Aminoacido Desconhecido
+
+
+fig = Figure(; size = (2000,3000))
 G_subfig = GridLayout(fig[1,1])
 A_subfig = GridLayout(fig[1,2])
 F_subfig = GridLayout(fig[1,3])
@@ -39,6 +65,15 @@ E_subfig = GridLayout(fig[3,3])
 K_subfig = GridLayout(fig[4,1])
 L_subfig = GridLayout(fig[4,2])
 I_subfig = GridLayout(fig[4,3])
+H_subfig = GridLayout(fig[5,1])
+S_subfig = GridLayout(fig[5,2])
+C_subfig = GridLayout(fig[5,3])
+P_subfig = GridLayout(fig[6,1])
+W_subfig = GridLayout(fig[6,2])
+Y_subfig = GridLayout(fig[6,3])
+V_subfig = GridLayout(fig[7,1])
+T_subfig = GridLayout(fig[7,2])
+X_subfig = GridLayout(fig[7,3])
 
 # Glicina (G)
     G_subdf = subset(merged_results_df, :aa => x -> x .== "G")
@@ -136,6 +171,78 @@ I_subfig = GridLayout(fig[4,3])
     scI2 = scatter!(axI2, I_subdf.tinti_phi_prediction, I_subdf.tinti_psi_prediction, color = (:blue, 0.3))
     Label(I_subfig[0, :], "Isoleucina (I)", fontsize = 30, justification = :center)
 
+# Histidina (H)
+    H_subdf = subset(merged_results_df, :aa => x -> x .== "H")
+    axH1 = Axis(H_subfig[1,1], xlabel = "PHI", ylabel = "PSI", limits = ((-180.0, +180.0), (-180.0, +180.0)))
+    axH2 = Axis(H_subfig[1,2], xlabel = "PHI", ylabel = "PSI", limits = ((-180.0, +180.0), (-180.0, +180.0)))
+    scH1 = scatter!(axH1, H_subdf.dssp_phi, H_subdf.dssp_psi, color = (:red, 0.3))
+    scH2 = scatter!(axH2, H_subdf.tinti_phi_prediction, H_subdf.tinti_psi_prediction, color = (:blue, 0.3))
+    Label(H_subfig[0, :], "Histidina (H)", fontsize = 30, justification = :center)
+
+# Serina (S)
+    S_subdf = subset(merged_results_df, :aa => x -> x .== "S")
+    axS1 = Axis(S_subfig[1,1], xlabel = "PHI", ylabel = "PSI", limits = ((-180.0, +180.0), (-180.0, +180.0)))
+    axS2 = Axis(S_subfig[1,2], xlabel = "PHI", ylabel = "PSI", limits = ((-180.0, +180.0), (-180.0, +180.0)))
+    scS1 = scatter!(axS1, S_subdf.dssp_phi, S_subdf.dssp_psi, color = (:red, 0.3))
+    scS2 = scatter!(axS2, S_subdf.tinti_phi_prediction, S_subdf.tinti_psi_prediction, color = (:blue, 0.3))
+    Label(S_subfig[0, :], "Serina (S)", fontsize = 30, justification = :center)
+
+# Cisteina (C)
+    C_subdf = subset(merged_results_df, :aa => x -> x .== "C")
+    axC1 = Axis(C_subfig[1,1], xlabel = "PHI", ylabel = "PSI", limits = ((-180.0, +180.0), (-180.0, +180.0)))
+    axC2 = Axis(C_subfig[1,2], xlabel = "PHI", ylabel = "PSI", limits = ((-180.0, +180.0), (-180.0, +180.0)))
+    scC1 = scatter!(axC1, C_subdf.dssp_phi, C_subdf.dssp_psi, color = (:red, 0.3))
+    scC2 = scatter!(axC2, C_subdf.tinti_phi_prediction, C_subdf.tinti_psi_prediction, color = (:blue, 0.3))
+    Label(C_subfig[0, :], "Cisteina (C)", fontsize = 30, justification = :center)
+
+# Prolina (P)
+    P_subdf = subset(merged_results_df, :aa => x -> x .== "P")
+    axP1 = Axis(P_subfig[1,1], xlabel = "PHI", ylabel = "PSI", limits = ((-180.0, +180.0), (-180.0, +180.0)))
+    axP2 = Axis(P_subfig[1,2], xlabel = "PHI", ylabel = "PSI", limits = ((-180.0, +180.0), (-180.0, +180.0)))
+    scP1 = scatter!(axP1, P_subdf.dssp_phi, P_subdf.dssp_psi, color = (:red, 0.3))
+    scP2 = scatter!(axP2, P_subdf.tinti_phi_prediction, P_subdf.tinti_psi_prediction, color = (:blue, 0.3))
+    Label(P_subfig[0, :], "Prolina (P)", fontsize = 30, justification = :center)
+
+# Triptofano (W)
+    W_subdf = subset(merged_results_df, :aa => x -> x .== "W")
+    axW1 = Axis(W_subfig[1,1], xlabel = "PHI", ylabel = "PSI", limits = ((-180.0, +180.0), (-180.0, +180.0)))
+    axW2 = Axis(W_subfig[1,2], xlabel = "PHI", ylabel = "PSI", limits = ((-180.0, +180.0), (-180.0, +180.0)))
+    scW1 = scatter!(axW1, W_subdf.dssp_phi, W_subdf.dssp_psi, color = (:red, 0.3))
+    scW2 = scatter!(axW2, W_subdf.tinti_phi_prediction, W_subdf.tinti_psi_prediction, color = (:blue, 0.3))
+    Label(W_subfig[0, :], "Triptofano (W)", fontsize = 30, justification = :center)
+
+# Tirosina (Y)
+    Y_subdf = subset(merged_results_df, :aa => x -> x .== "Y")
+    axY1 = Axis(Y_subfig[1,1], xlabel = "PHI", ylabel = "PSI", limits = ((-180.0, +180.0), (-180.0, +180.0)))
+    axY2 = Axis(Y_subfig[1,2], xlabel = "PHI", ylabel = "PSI", limits = ((-180.0, +180.0), (-180.0, +180.0)))
+    scY1 = scatter!(axY1, Y_subdf.dssp_phi, Y_subdf.dssp_psi, color = (:red, 0.3))
+    scY2 = scatter!(axY2, Y_subdf.tinti_phi_prediction, Y_subdf.tinti_psi_prediction, color = (:blue, 0.3))
+    Label(Y_subfig[0, :], "Tirosina (Y)", fontsize = 30, justification = :center)
+
+# Valiha (V)
+    V_subdf = subset(merged_results_df, :aa => x -> x .== "V")
+    axV1 = Axis(V_subfig[1,1], xlabel = "PHI", ylabel = "PSI", limits = ((-180.0, +180.0), (-180.0, +180.0)))
+    axV2 = Axis(V_subfig[1,2], xlabel = "PHI", ylabel = "PSI", limits = ((-180.0, +180.0), (-180.0, +180.0)))
+    scV1 = scatter!(axV1, V_subdf.dssp_phi, V_subdf.dssp_psi, color = (:red, 0.3))
+    scV2 = scatter!(axV2, V_subdf.tinti_phi_prediction, V_subdf.tinti_psi_prediction, color = (:blue, 0.3))
+    Label(V_subfig[0, :], "Valina (V)", fontsize = 30, justification = :center)
+
+# Threonina (T)
+    T_subdf = subset(merged_results_df, :aa => x -> x .== "T")
+    axT1 = Axis(T_subfig[1,1], xlabel = "PHI", ylabel = "PSI", limits = ((-180.0, +180.0), (-180.0, +180.0)))
+    axT2 = Axis(T_subfig[1,2], xlabel = "PHI", ylabel = "PSI", limits = ((-180.0, +180.0), (-180.0, +180.0)))
+    scT1 = scatter!(axT1, T_subdf.dssp_phi, T_subdf.dssp_psi, color = (:red, 0.3))
+    scT2 = scatter!(axT2, T_subdf.tinti_phi_prediction, T_subdf.tinti_psi_prediction, color = (:blue, 0.3))
+    Label(T_subfig[0, :], "Threonina (T)", fontsize = 30, justification = :center)
+
+# Aminoacido Desconhecido (X)
+    X_subdf = subset(merged_results_df, :aa => x -> x .== "X")
+    axX1 = Axis(X_subfig[1,1], xlabel = "PHI", ylabel = "PSI", limits = ((-180.0, +180.0), (-180.0, +180.0)))
+    axX2 = Axis(X_subfig[1,2], xlabel = "PHI", ylabel = "PSI", limits = ((-180.0, +180.0), (-180.0, +180.0)))
+    scX1 = scatter!(axX1, X_subdf.dssp_phi, X_subdf.dssp_psi, color = (:red, 0.3))
+    scX2 = scatter!(axX2, X_subdf.tinti_phi_prediction, X_subdf.tinti_psi_prediction, color = (:blue, 0.3))
+    Label(X_subfig[0, :], "Aminoacido desconhecido (X)", fontsize = 30, justification = :center)
+
 colsize!(G_subfig, 1, Relative(1/2))
 colsize!(G_subfig, 2, Relative(1/2))
 colsize!(A_subfig, 1, Relative(1/2))
@@ -160,25 +267,21 @@ colsize!(L_subfig, 1, Relative(1/2))
 colsize!(L_subfig, 2, Relative(1/2))
 colsize!(I_subfig, 1, Relative(1/2))
 colsize!(I_subfig, 2, Relative(1/2))
-
-
-"N"
- "A"
- "I"
- "D"
- "P"
- "R"
- "E"
- "L"
- "G"
- "V"
- "K"
- "S"
- "T"
- "Y"
- "F"
- "H"
- "W"
- "Q"
- "C"
- "X"
+colsize!(H_subfig, 1, Relative(1/2))
+colsize!(H_subfig, 2, Relative(1/2))
+colsize!(S_subfig, 1, Relative(1/2))
+colsize!(S_subfig, 2, Relative(1/2))
+colsize!(C_subfig, 1, Relative(1/2))
+colsize!(C_subfig, 2, Relative(1/2))
+colsize!(P_subfig, 1, Relative(1/2))
+colsize!(P_subfig, 2, Relative(1/2))
+colsize!(W_subfig, 1, Relative(1/2))
+colsize!(W_subfig, 2, Relative(1/2))
+colsize!(Y_subfig, 1, Relative(1/2))
+colsize!(Y_subfig, 2, Relative(1/2))
+colsize!(V_subfig, 1, Relative(1/2))
+colsize!(V_subfig, 2, Relative(1/2))
+colsize!(T_subfig, 1, Relative(1/2))
+colsize!(T_subfig, 2, Relative(1/2))
+colsize!(X_subfig, 1, Relative(1/2))
+colsize!(X_subfig, 2, Relative(1/2))
