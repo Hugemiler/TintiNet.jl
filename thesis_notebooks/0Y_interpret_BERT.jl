@@ -19,11 +19,14 @@ using TintiNet
 Random.seed!(102528)
 
 hyperpar = Dict(
-    "max_seq_len"       => 128,     # Maximum sequence length on the model (default 192)
+    "max_seq_len"       => 192,     # Maximum sequence length on the model (default 192)
     "batch_size"        => 128,     # Batch size for training (default 128)
 )
 
-inputfile_path = "/home/guilherme/2021_NEURALNET/TintiNet.jl/examples/example_samples.fasta" ## First argument is the location of the sequence input file
+inputfile_path = "/home/guilherme/2021_NEURALNET/data/data/data_folds_192/fold_01_192/fold_01_192_train_sequences.fasta"
+# inputfile_path = "/home/guilherme/2021_NEURALNET/data/data/data_folds_192/fold_01_192/fold_01_192_test_sequences.fasta"
+
+# inputfile_path = "/home/guilherme/2021_NEURALNET/TintiNet.jl/examples/example_samples.fasta" ## First argument is the location of the sequence input file
 
 #####
 # 1. Obtaining the data
@@ -42,7 +45,17 @@ Flux.testmode!(classifier_model)
 #####
 # 3. Model evaluation
 #####
-x = sequences[1:1]
+
+findall(headers .== "5cxoB00") # 5653
+findall(headers .== "1c75A00") # 22083
+findall(headers .== "1d06A00") # 16899
+selected_seq_idx = 5653 # SALBIII, 5cxoB00
+selected_seq_idx = 22083
+selected_seq_idx = 16899
+
+x = sequences[selected_seq_idx:selected_seq_idx]
+x = preprocess(x, 192, "-")
+
 x_gpu = fastaVocab(x)
 x_gpu = reshape(x_gpu, :, 1) |> gpu
 out1 = classifier_model[1](x_gpu)
@@ -63,8 +76,8 @@ out15 = classifier_model[15](out13, out14)
 out16 = classifier_model[16](out15; all = true)
 
 n_transformer_layers = 2
-attention_matrix = Array{Float64, 3}(undef, 128, 8, n_transformer_layers)
-attention_tensor = Array{Float64, 4}(undef, 128, 128, 8, n_transformer_layers)
+attention_matrix = Array{Float64, 3}(undef, 192, 8, n_transformer_layers)
+attention_tensor = Array{Float64, 4}(undef, 192, 192, 8, n_transformer_layers)
 
 for this_layer_idx in 1:n_transformer_layers
 
@@ -111,61 +124,84 @@ end
 #####
 
 using CairoMakie
-
-fig = Figure(; size = (1000,600))
-ax1 = Axis(fig[1,1])
-ax2 = Axis(fig[2,1])
-hm1 = heatmap!(ax1, attention_matrix[:,:,1])
-hm2 = heatmap!(ax2, attention_matrix[:,:,2])
+# this_seq_len = 134 #SalBIII, 5cxoB00
+# this_seq_len = 71 #CytC553 1c75A00
+this_seq_len = 130 #OxySig 1d06A00
 
 
-fig = Figure(; size = (2400,600))
-ax1_1 = Axis(fig[1,1])
-ax2_1 = Axis(fig[1,2])
-ax3_1 = Axis(fig[1,3])
-ax4_1 = Axis(fig[1,4])
-ax5_1 = Axis(fig[1,5])
-ax6_1 = Axis(fig[1,6])
-ax7_1 = Axis(fig[1,7])
-ax8_1 = Axis(fig[1,8])
-ax1_2 = Axis(fig[2,1])
-ax2_2 = Axis(fig[2,2])
-ax3_2 = Axis(fig[2,3])
-ax4_2 = Axis(fig[2,4])
-ax5_2 = Axis(fig[2,5])
-ax6_2 = Axis(fig[2,6])
-ax7_2 = Axis(fig[2,7])
-ax8_2 = Axis(fig[2,8])
+## Combined attentions
+fig = Figure(; size = (1200,600))
+ax1 = Axis(fig[1,1], xticks = (1:10:this_seq_len) , yticks = (1:8), xlabel = "Posicao na sequencia", ylabel = "Cabeca de previsao (\"Head\")", title = "BERT - camada 1")
+ax2 = Axis(fig[2,1], xticks = (1:10:this_seq_len) , yticks = (1:8), xlabel = "Posicao na sequencia", ylabel = "Cabeca de previsao (\"Head\")", title = "BERT - camada 2")
+hm1 = heatmap!(ax1, attention_matrix[1:this_seq_len,:,1])
+hm2 = heatmap!(ax2, attention_matrix[1:this_seq_len,:,2])
 
-hm1_1 = heatmap!(ax1_1, attention_tensor[:,:,1,1])
-hm2_1 = heatmap!(ax2_1, attention_tensor[:,:,2,1])
-hm3_1 = heatmap!(ax3_1, attention_tensor[:,:,3,1])
-hm4_1 = heatmap!(ax4_1, attention_tensor[:,:,4,1])
-hm5_1 = heatmap!(ax5_1, attention_tensor[:,:,5,1])
-hm6_1 = heatmap!(ax6_1, attention_tensor[:,:,6,1])
-hm7_1 = heatmap!(ax7_1, attention_tensor[:,:,7,1])
-hm8_1 = heatmap!(ax8_1, attention_tensor[:,:,8,1])
-hm1_2 = heatmap!(ax1_2, attention_tensor[:,:,1,2])
-hm2_2 = heatmap!(ax2_2, attention_tensor[:,:,2,2])
-hm3_2 = heatmap!(ax3_2, attention_tensor[:,:,3,2])
-hm4_2 = heatmap!(ax4_2, attention_tensor[:,:,4,2])
-hm5_2 = heatmap!(ax5_2, attention_tensor[:,:,5,2])
-hm6_2 = heatmap!(ax6_2, attention_tensor[:,:,6,2])
-hm7_2 = heatmap!(ax7_2, attention_tensor[:,:,7,2])
-hm8_2 = heatmap!(ax8_2, attention_tensor[:,:,8,2])
+save("attentionhm_sequence$(selected_seq_idx)_allheads.png", fig)
 
-fig
+## Individual slement-wise attentions
+for tf_layer_idx in 1:2
+    for head_idx in 1:8
+        fig = Figure(; size = (600,600))
+        ax = Axis(fig[1,1], yreversed=true)
+        hm = heatmap!(ax, attention_tensor[1:this_seq_len,1:this_seq_len,head_idx, tf_layer_idx])
+
+        save("attentionhm_sequence$(selected_seq_idx)_head$(head_idx)_layer$(tf_layer_idx).png", fig)
+    end
+end
+
+# Clearly, one big figure did not work! - but safekeeping this...
+# fig = Figure(; size = (2400,600))
+# ax1_1 = Axis(fig[1,1])
+# ax2_1 = Axis(fig[1,2])
+# ax3_1 = Axis(fig[1,3])
+# ax4_1 = Axis(fig[1,4])
+# ax5_1 = Axis(fig[1,5])
+# ax6_1 = Axis(fig[1,6])
+# ax7_1 = Axis(fig[1,7])
+# ax8_1 = Axis(fig[1,8])
+# ax1_2 = Axis(fig[2,1])
+# ax2_2 = Axis(fig[2,2])
+# ax3_2 = Axis(fig[2,3])
+# ax4_2 = Axis(fig[2,4])
+# ax5_2 = Axis(fig[2,5])
+# ax6_2 = Axis(fig[2,6])
+# ax7_2 = Axis(fig[2,7])
+# ax8_2 = Axis(fig[2,8])
+# hm1_1 = heatmap!(ax1_1, attention_tensor[:,:,1,1])
+# hm2_1 = heatmap!(ax2_1, attention_tensor[:,:,2,1])
+# hm3_1 = heatmap!(ax3_1, attention_tensor[:,:,3,1])
+# hm4_1 = heatmap!(ax4_1, attention_tensor[:,:,4,1])
+# hm5_1 = heatmap!(ax5_1, attention_tensor[:,:,5,1])
+# hm6_1 = heatmap!(ax6_1, attention_tensor[:,:,6,1])
+# hm7_1 = heatmap!(ax7_1, attention_tensor[:,:,7,1])
+# hm8_1 = heatmap!(ax8_1, attention_tensor[:,:,8,1])
+# hm1_2 = heatmap!(ax1_2, attention_tensor[:,:,1,2])
+# hm2_2 = heatmap!(ax2_2, attention_tensor[:,:,2,2])
+# hm3_2 = heatmap!(ax3_2, attention_tensor[:,:,3,2])
+# hm4_2 = heatmap!(ax4_2, attention_tensor[:,:,4,2])
+# hm5_2 = heatmap!(ax5_2, attention_tensor[:,:,5,2])
+# hm6_2 = heatmap!(ax6_2, attention_tensor[:,:,6,2])
+# hm7_2 = heatmap!(ax7_2, attention_tensor[:,:,7,2])
+# hm8_2 = heatmap!(ax8_2, attention_tensor[:,:,8,2])
+
+training_set = JSON.parsefile("/home/guilherme/2021_NEURALNET/data/data/data_folds_192/fold_01_192/fold_01_192_train_dataset.json"; dicttype=Dict, inttype=Int64, use_mmap=true)
+# seqidx = findall( [ values(training_set)[i]["domain"] for i in eachindex(values(training_set)) ] .== "5cxoB00" )[1]
+# seqidx = findall( [ values(training_set)[i]["domain"] for i in eachindex(values(training_set)) ] .== "1c75A00" )[1]
+seqidx = findall( [ values(training_set)[i]["domain"] for i in eachindex(values(training_set)) ] .== "1d06A00" )[1]
+input_seq = values(training_set)[seqidx]["fasta_seq"]
+dssp_ss3 = values(training_set)[seqidx]["dssp_ss3"]
 
 ss_predictions = compute_classifier_predictions(
     classifier_model,
-    sequences[1:1];
+    x;
     batched=true,
     eval_batch_size=64,
     use_gpu=true,
-    sleep_time_seconds=0.01)
+    sleep_time_seconds=0.01
+)
 
-#####
-# 4. Saving Prediction Results
-#####
+print("SEQUENCE: $(reduce(*, input_seq))\nDSSP_SS3: $(reduce(*, dssp_ss3))\nMODEL_SS3: $(reduce(*, ss_predictions[1]))")
 
-write_csv_predictions(output_path, headers, sequences, ss_predictions, phi_predictions, psi_predictions, acc_predictions)
+mean(dssp_ss3[1:134] .== ss_predictions[1][1:134]) # SALBIII, 5cxoB00
+mean(dssp_ss3[1:71] .== ss_predictions[1][1:71]) # CytC553, 1c75A00
+mean(dssp_ss3[1:130] .== ss_predictions[1][1:130]) # OxySig, 5cxoB00
