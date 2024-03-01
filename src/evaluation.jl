@@ -133,56 +133,167 @@ end
     This function receives a `Vector{String}` `v` and returns a same-length `Vector{String}`
     with every element of `v` padded to length `n` with symbol `p`
 """
+# function compute_regressor_predictions(
+#             model,
+#             sequences::Vector{Vector{String}};
+#             batched=false,
+#             eval_batch_size=64,
+#             use_gpu=true,
+#             sleep_time_seconds=0.02)
+
+#     # Pre-allocate the vector containing the prediction strings
+#     predicted_phis_vector = Vector{Vector{Float64}}(undef, length(sequences))
+#     predicted_psis_vector = Vector{Vector{Float64}}(undef, length(sequences))
+#     predicted_accs_vector = Vector{Vector{Float64}}(undef, length(sequences))
+
+#     if batched # Utilize a batched network pass
+
+#         prediction_position = 1
+#         sequence_batches = Flux.Data.DataLoader(sequences; batchsize=eval_batch_size, shuffle=false)
+
+#         for batch in sequence_batches
+
+#             seq_lens = length.(batch)
+#             batch_outputs = use_gpu ? network_pass_batched_GPU(model, batch) : network_pass_batched_CPU(model, batch)
+
+#             for i in 1:length(batch)
+
+#                 predicted_phis_vector[prediction_position] = atand.(single_prediction[1, j, 1:seq_lens[prediction_position]], single_prediction[2, j, 1:seq_lens[prediction_position]])
+#                 predicted_psis_vector[prediction_position] = atand.(single_prediction[3, j, 1:seq_lens[prediction_position]], single_prediction[4, j, 1:seq_lens[prediction_position]])
+#                 predicted_accs_vector[prediction_position] = (single_prediction[5, j, 1:seq_lens[prediction_position]] .* 100) .+ 100
+#                 prediction_position += 1
+
+#             end
+
+# #            sleep(sleep_time_seconds)
+#         end
+
+#     else # Utilize a single-sequence network pass
+
+#         for i in 1:length(sequences)
+#             single_prediction = use_gpu ? network_pass_single_GPU(model, sequences[i]) : network_pass_single_CPU(model, sequences[i])
+
+# #        @show single_prediction[1,1] # For debugging
+
+#             predicted_phis_vector[i] = [ atand(single_prediction[1, j], single_prediction[2, j]) for j in 1:length(sequences[i]) ]
+#             predicted_psis_vector[i] = [ atand(single_prediction[3, j], single_prediction[4, j]) for j in 1:length(sequences[i]) ] 
+#             predicted_accs_vector[i] = [ (single_prediction[5, j]*100)+100 for j in 1:length(sequences[i]) ]
+#             sleep(sleep_time_seconds)
+#         end
+    
+#     end # end if batched
+
+#     return(predicted_phis_vector, predicted_psis_vector, predicted_accs_vector)
+
+# end
+
 function compute_regressor_predictions(
-            model,
-            sequences::Vector{Vector{String}};
-            batched=false,
-            eval_batch_size=64,
-            use_gpu=true,
-            sleep_time_seconds=0.02)
+    model,
+    sequences::Vector{Vector{String}};
+    batched=false,
+    eval_batch_size=64,
+    use_gpu=true,
+    sleep_time_seconds=0.02)
 
-    # Pre-allocate the vector containing the prediction strings
-    predicted_phis_vector = Vector{Vector{Float64}}(undef, length(sequences))
-    predicted_psis_vector = Vector{Vector{Float64}}(undef, length(sequences))
-    predicted_accs_vector = Vector{Vector{Float64}}(undef, length(sequences))
+# Pre-allocate the vector containing the prediction strings
+predicted_phis_vector = Vector{Vector{Float64}}(undef, length(sequences))
+predicted_psis_vector = Vector{Vector{Float64}}(undef, length(sequences))
 
-    if batched # Utilize a batched network pass
+if batched # Utilize a batched network pass
 
-        prediction_position = 1
-        sequence_batches = Flux.Data.DataLoader(sequences; batchsize=eval_batch_size, shuffle=false)
+prediction_position = 1
+sequence_batches = Flux.Data.DataLoader(sequences; batchsize=eval_batch_size, shuffle=false)
 
-        for batch in sequence_batches
+for batch in sequence_batches
 
-            seq_lens = length.(batch)
-            batch_outputs = use_gpu ? network_pass_batched_GPU(model, batch) : network_pass_batched_CPU(model, batch)
+    seq_lens = length.(batch)
+    batch_outputs = use_gpu ? network_pass_batched_GPU(model, batch) : network_pass_batched_CPU(model, batch)
 
-            for i in 1:length(batch)
+    for i in 1:length(batch)
 
-                predicted_phis_vector[prediction_position] = atand.(single_prediction[1, j, 1:seq_lens[prediction_position]], single_prediction[2, j, 1:seq_lens[prediction_position]])
-                predicted_psis_vector[prediction_position] = atand.(single_prediction[3, j, 1:seq_lens[prediction_position]], single_prediction[4, j, 1:seq_lens[prediction_position]])
-                predicted_accs_vector[prediction_position] = (single_prediction[5, j, 1:seq_lens[prediction_position]] .* 100) .+ 100
-                prediction_position += 1
+        predicted_phis_vector[prediction_position] = 180.0 .* single_prediction[1, j, 1:seq_lens[prediction_position]]
+        predicted_psis_vector[prediction_position] = 180.0 .* single_prediction[2, j, 1:seq_lens[prediction_position]]
+        prediction_position += 1
 
-            end
+    end
 
 #            sleep(sleep_time_seconds)
-        end
+end
 
-    else # Utilize a single-sequence network pass
+else # Utilize a single-sequence network pass
 
-        for i in 1:length(sequences)
-            single_prediction = use_gpu ? network_pass_single_GPU(model, sequences[i]) : network_pass_single_CPU(model, sequences[i])
+for i in 1:length(sequences)
+    single_prediction = use_gpu ? network_pass_single_GPU(model, sequences[i]) : network_pass_single_CPU(model, sequences[i])
 
 #        @show single_prediction[1,1] # For debugging
 
-            predicted_phis_vector[i] = [ atand(single_prediction[1, j], single_prediction[2, j]) for j in 1:length(sequences[i]) ]
-            predicted_psis_vector[i] = [ atand(single_prediction[3, j], single_prediction[4, j]) for j in 1:length(sequences[i]) ] 
-            predicted_accs_vector[i] = [ (single_prediction[5, j]*100)+100 for j in 1:length(sequences[i]) ]
-            sleep(sleep_time_seconds)
-        end
-    
-    end # end if batched
+    predicted_phis_vector[i] = [ 180.0 * single_prediction[1, j] for j in 1:length(sequences[i]) ]
+    predicted_psis_vector[i] = [ 180.0 * single_prediction[2, j] for j in 1:length(sequences[i]) ] 
+    sleep(sleep_time_seconds)
+end
 
-    return(predicted_phis_vector, predicted_psis_vector, predicted_accs_vector)
+end # end if batched
+
+return(predicted_phis_vector, predicted_psis_vector, deepcopy(predicted_psis_vector))
+
+end
+
+function compute_regressor_predictions_debug(
+    model,
+    sequences::Vector{Vector{String}};
+    batched=false,
+    eval_batch_size=64,
+    use_gpu=true,
+    sleep_time_seconds=0.02)
+
+# Pre-allocate the vector containing the prediction strings
+predicted_phis_sin_vector = Vector{Vector{Float64}}(undef, length(sequences))
+predicted_phis_cos_vector = Vector{Vector{Float64}}(undef, length(sequences))
+predicted_psis_sin_vector = Vector{Vector{Float64}}(undef, length(sequences))
+predicted_psis_cos_vector = Vector{Vector{Float64}}(undef, length(sequences))
+predicted_accs_vector = Vector{Vector{Float64}}(undef, length(sequences))
+
+if batched # Utilize a batched network pass
+
+prediction_position = 1
+sequence_batches = Flux.Data.DataLoader(sequences; batchsize=eval_batch_size, shuffle=false)
+
+for batch in sequence_batches
+
+    seq_lens = length.(batch)
+    batch_outputs = use_gpu ? network_pass_batched_GPU(model, batch) : network_pass_batched_CPU(model, batch)
+
+    for i in 1:length(batch)
+
+        predicted_phis_sin_vector[prediction_position] = single_prediction[1, j, 1:seq_lens[prediction_position]]
+        predicted_phis_cos_vector[prediction_position] = single_prediction[2, j, 1:seq_lens[prediction_position]]
+        predicted_psis_sin_vector[prediction_position] = single_prediction[3, j, 1:seq_lens[prediction_position]]
+        predicted_psis_cos_vector[prediction_position] = single_prediction[4, j, 1:seq_lens[prediction_position]]
+        predicted_accs_vector[prediction_position] = single_prediction[5, j, 1:seq_lens[prediction_position]]
+        prediction_position += 1
+
+    end
+
+#            sleep(sleep_time_seconds)
+end
+
+else # Utilize a single-sequence network pass
+
+for i in 1:length(sequences)
+    single_prediction = use_gpu ? network_pass_single_GPU(model, sequences[i]) : network_pass_single_CPU(model, sequences[i])
+
+#        @show single_prediction[1,1] # For debugging
+
+    predicted_phis_sin_vector[i] = single_prediction[1, 1:length(sequences[i])]
+    predicted_phis_cos_vector[i] = single_prediction[2, 1:length(sequences[i])]
+    predicted_psis_sin_vector[i] = single_prediction[3, 1:length(sequences[i])]
+    predicted_psis_cos_vector[i] = single_prediction[4, 1:length(sequences[i])]
+    predicted_accs_vector[i] = single_prediction[5, 1:length(sequences[i]) ]
+    sleep(sleep_time_seconds)
+end
+
+end # end if batched
+
+return(predicted_phis_sin_vector, predicted_phis_cos_vector, predicted_psis_sin_vector, predicted_psis_cos_vector, predicted_accs_vector)
 
 end

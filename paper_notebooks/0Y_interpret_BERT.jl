@@ -28,8 +28,8 @@ inputfile_path = "/home/guilherme/2021_NEURALNET/data/data/data_folds_192/fold_0
 # inputfile_path = "/home/guilherme/2021_NEURALNET/data/data/data_folds_192/fold_01_192/fold_01_192_test_sequences.fasta"
 # inputfile_path = "/home/guilherme/2021_NEURALNET/TintiNet.jl/examples/example_samples.fasta" ## First argument is the location of the sequence input file
 training_set = JSON.parsefile("/home/guilherme/2021_NEURALNET/data/data/data_folds_192/fold_01_192/fold_01_192_train_dataset.json"; dicttype=Dict, inttype=Int64, use_mmap=true)
-seqidx = findall( [ values(training_set)[i]["domain"] for i in eachindex(values(training_set)) ] .== "5cxoB00" )[1]
-# seqidx = findall( [ values(training_set)[i]["domain"] for i in eachindex(values(training_set)) ] .== "1c75A00" )[1]
+# seqidx = findall( [ values(training_set)[i]["domain"] for i in eachindex(values(training_set)) ] .== "5cxoB00" )[1]
+seqidx = findall( [ values(training_set)[i]["domain"] for i in eachindex(values(training_set)) ] .== "1c75A00" )[1]
 # seqidx = findall( [ values(training_set)[i]["domain"] for i in eachindex(values(training_set)) ] .== "1d06A00" )[1]
 input_seq = values(training_set)[seqidx]["fasta_seq"]
 dssp_ss3 = values(training_set)[seqidx]["dssp_ss3"]
@@ -54,16 +54,16 @@ paramCount = sum(length, params(classifier_model))
 # 3. Model evaluation
 #####
 
-findall(headers .== "5cxoB00") # 5653
-# findall(headers .== "1c75A00") # 22083
+# findall(headers .== "5cxoB00") # 5653
+findall(headers .== "1c75A00") # 22083
 # findall(headers .== "1d06A00") # 16899
-selected_seq_idx = 5653 # SALBIII, 5cxoB00
-# selected_seq_idx = 22083
+# selected_seq_idx = 5653 # SALBIII, 5cxoB00
+selected_seq_idx = 22083
 # selected_seq_idx = 16899
 
 x = sequences[selected_seq_idx:selected_seq_idx]
-# this_seq_len = length(x[1])
-this_seq_len = 134
+this_seq_len = length(x[1])
+# this_seq_len = 134
 x = preprocess(x, 192, "-")
 
 x_gpu = fastaVocab(x)
@@ -101,7 +101,7 @@ hclust_res_order = hcl_res.order
 fig = Figure(; size = (2000,2000))
 ax1 = Axis(
     fig[1,1],
-    xlabel = "Posicao na sequencia", ylabel = "Caminho do InceptiGOR8",
+    xlabel = "Posição na sequência primária", ylabel = "Caminho do InceptiGOR8",
     xticks = ((collect(1:10:192) .- 0.5), string.(collect(0:10:192))),
     yticks = (
         collect(1:128),
@@ -119,12 +119,12 @@ ax1 = Axis(
     ),
     yticklabelrotation = pi/2,
     xticklabelsize = 20, yticklabelsize = 20,
-    xlabelsize = 20, ylabelsize = 20, titlesize = 20,
-    title = "Output da ultima camada InceptiGOR, na ordem original da sequencia primaria", yreversed = false
+    xlabelsize = 20, ylabelsize = 20, titlesize = 24,
+    title = "Output da última camada InceptiGOR, na ordem original da sequência primária", yreversed = false
 )
 ax2 = Axis(
     fig[2,1],
-    xlabel = "Estrutura secundaria de referencia", ylabel = "Caminho do InceptiGOR8",
+    ylabel = "Caminho do InceptiGOR8",
     xticks = (collect(1:192), hcplot_dssp_ss3[hcl_res.order]),
     yticks = (
         collect(1:128),
@@ -142,24 +142,26 @@ ax2 = Axis(
     ),
     yticklabelrotation = pi/2,
     xticklabelsize = 12, yticklabelsize = 20,
-    xlabelsize = 20, ylabelsize = 20, titlesize = 20,
-    title = "Output da ultima camada InceptiGOR, ordenado por analise hierarquica de agrupamentos", yreversed = false
+    ylabelsize = 20, titlesize = 24,
+    title = "Output da última camada InceptiGOR, ordenado por análise hierárquica de agrupamentos", yreversed = false
 )
-# ax2ticks = Axis(
-#     fig[2,1],
-#     yticks = (collect(1:128), vcat( repeat(["Single"],16), repeat(["Conv3"],16), repeat(["Conv5"],16), repeat(["Conv7"],16), repeat(["Conv9"],16), repeat(["Conv11"],16), repeat(["Conv13"],16), repeat(["MaxPool"],16) )),
-#     xticks = (collect(1:192), string.(hcl_res.order)),
-#     xticklabelpad = 20.0,
-#     xticklabelrotation = pi/2,
-#     xticklabelsize = 12,
-#     yreversed = false
-# )
-# linkaxes!(ax2ticks, ax2)
-# hidedeycorations!(ax2ticks)
+ax2ticks = Axis(
+    fig[2,1],
+    xlabel = "Estrutura secundária de referência",
+    xticks = (collect(1:192), string.(hcl_res.order)),
+    xticklabelpad = 20.0,
+    xticklabelrotation = pi/2,
+    xticklabelsize = 12,
+    xlabelsize = 20,
+    yreversed = false
+)
+linkaxes!(ax2ticks, ax2)
 hm1 = heatmap!(ax1, cpu(out10[1,:,:,1]), yreversed = true)
 hm2 = heatmap!(ax2, cpu(out10[1,:,:,1])[hcl_res.order, :], yreversed = true)
+hm2 = heatmap!(ax2ticks, cpu(out10[1,:,:,1])[hcl_res.order, :], yreversed = true)
+hideydecorations!(ax2ticks)
 
-Colorbar(fig[3,1], hm1, label = "Nivel do sinal na matriz de saida da ultima camada InceptiGOR8 (unidade arbitraria)", labelsize = 20, vertical = false)
+Colorbar(fig[3,1], hm1, label = "Nível do sinal na matriz de saída da última camada InceptiGOR8 (unidade arbitrária)", labelsize = 20, vertical = false)
 
 save("inception_sequence$(selected_seq_idx).png", fig)
 
@@ -218,8 +220,8 @@ end
 #####
 
 ## Combined attentions
-fig = Figure(; size = (1200,600))
-# fig = Figure(; size = (700,600))
+# fig = Figure(; size = (1200,600))
+fig = Figure(; size = (700,600))
 ax1 = Axis(fig[1,1], xticks = (1:10:this_seq_len) , yticks = (1:8), xlabel = "Posicao na sequencia", ylabel = "Cabeca de previsao (\"Head\")", title = "BERT - camada 1", yreversed = false)
 ax2 = Axis(fig[2,1], xticks = (1:10:this_seq_len) , yticks = (1:8), xlabel = "Posicao na sequencia", ylabel = "Cabeca de previsao (\"Head\")", title = "BERT - camada 2", yreversed = false)
 hm1 = heatmap!(ax1, attention_matrix[1:this_seq_len,:,1])
@@ -289,8 +291,6 @@ for tf_layer_idx in 1:2
     save("attentionhm_sequence$(selected_seq_idx)_aggregate_layer$(tf_layer_idx).png", fig)
 
 end
-
-
 
 # Clearly, one big figure did not work! - but safekeeping this...
 # fig = Figure(; size = (2400,600))

@@ -87,3 +87,40 @@ function write_csv_predictions(
     end
 
 end
+
+function write_csv_predictions_debug(
+    output_folder::String,
+    headers::Vector{String},
+    sequences::Vector{Vector{String}},
+    ss_predictions::Vector{Vector{String}},
+    phi_sin_predictions::Vector{Vector{Float64}},
+    phi_cos_predictions::Vector{Vector{Float64}},
+    psi_sin_predictions::Vector{Vector{Float64}},
+    psi_cos_predictions::Vector{Vector{Float64}},
+    acc_predictions::Vector{Vector{Float64}})
+
+    N_sequences = length(headers) 
+
+    for i in 1:N_sequences
+
+        thisOutputFilePath = output_folder*"/"*headers[i]*".csv"
+
+        predictionMatrix = hcat(
+            1:length(sequences[i]),
+            sequences[i],
+            ss_predictions[i],
+            phi_sin_predictions[i],
+            phi_cos_predictions[i],
+            psi_sin_predictions[i],
+            psi_cos_predictions[i],
+            acc_predictions[i]
+        )
+
+        open(thisOutputFilePath, "w") do outputfile
+            println(outputfile, "position,aa,pred_SS,pred_PHI_sin,pred_PHI_cos,pred_PSI_sin,pred_PSI_cos,pred_ACC")
+            writedlm(outputfile, predictionMatrix, ',')
+        end
+
+    end
+
+end

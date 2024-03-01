@@ -29,7 +29,8 @@ module TintiNet
 
     # From tinti_io.jl
     export read_sequences_from_file,
-        write_csv_predictions
+        write_csv_predictions,
+        write_csv_predictions_debug
 
     # From definitions.jl
     export fastaCategories,
@@ -62,6 +63,7 @@ module TintiNet
         network_pass_batched_GPU,
         network_pass_batched_CPU,
         compute_classifier_predictions,
-        compute_regressor_predictions
+        compute_regressor_predictions,
+        compute_regressor_predictions_debug
 
 end
