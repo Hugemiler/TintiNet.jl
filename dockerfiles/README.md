@@ -35,7 +35,7 @@ Each one starts with the same header:
 
 | Folder | For | Version | GPU | Python | Status |
 |---|---|---|---|---|---|
-| `dssp` | secondary structure, accessibility, angles, strand partners | mkdssp 4.2.2 | no | no | built and tested |
+| `dssp` | secondary structure, accessibility, angles, strand ladders | mkdssp 4.4.10 | no | no | built and tested |
 | `stride` | independent secondary-structure assignment | commit 5e0db42 | no | no | built and tested |
 | `mmseqs2` | sequence clustering and leakage checks | 18-8cc5c | no | no | built and tested |
 | `foldseek` | structure search, to decide whether a fold is new | 10-941cd33 | no | no | built and tested |
@@ -48,36 +48,39 @@ Each one starts with the same header:
 ## Build the four that exist
 
 ```bash
-docker build -t tintinet/dssp:4.2.2          dockerfiles/dssp
+docker build -t tintinet/dssp:4.4.10         dockerfiles/dssp
 docker build -t tintinet/stride:5e0db42      dockerfiles/stride
 docker build -t tintinet/mmseqs2:18-8cc5c    dockerfiles/mmseqs2
 docker build -t tintinet/foldseek:10-941cd33 dockerfiles/foldseek
 ```
 
-## What the first test runs showed (17 Nov 2026)
+## What the test runs showed (17 Nov 2026)
 
 - **dssp** reads gzipped mmCIF directly. It prints "the input file is not
   valid" on files that are fine; that is its dictionary check, and the output
   is still written.
-- **dssp has two output formats.** The classic text format includes the strand
-  partner columns. The mmCIF format only includes them, and the per-residue
-  summary, when run with `--write-experimental`. The classic format has fixed
-  column widths that cannot hold very large structures, so the pipeline should
-  use the mmCIF format with that flag.
+- **dssp 4.2.2 was tried first and dropped.** On about one entry in ten it
+  fails with "Duplicate Key violation ... struct_sheet_range" when writing its
+  tables in mmCIF format. Version 4.4.10 ran all of those entries.
+- **dssp needs `--calculate-accessibility`** to include accessibility in mmCIF
+  output.
+- **dssp is fast on ordinary entries** (about 0.1 s) and slow on the very
+  largest (about 45 s for ribosome-sized ones).
 - **stride** works on PDB-format files and refuses mmCIF ("has no
   coordinates"), as expected.
-- **mmseqs2** clustered 3,000 sequences at 30% identity into 1,705 clusters.
+- **mmseqs2** clustered all 189,073 distinct PDB protein sequences at four
+  identity levels in under a minute.
 - **foldseek** reads gzipped mmCIF directly and finds each structure as its own
   best hit.
 
 ## Known wrinkles
 
-- **STRIDE reads PDB-format files only**, not mmCIF. The pipeline has to write
-  each chain in PDB format first.
-- **mkdssp 4.2.2 is the Ubuntu-packaged version**, not the newest upstream.
-- **DSSP and STRIDE can report different backbone angles for the same
-  residue.** On entry 1c75, which has alternate conformations, they differed by
-  tens of degrees at some residues. The two tools were given different file
-  formats and handle alternate conformations differently. This is why the
-  pipeline also computes angles itself, with an explicit rule for which
-  conformation to use.
+- **STRIDE reads PDB-format files only**, not mmCIF. Step 06 of the pipeline
+  writes each chain in PDB format for it.
+- **DSSP and our own backbone angles differ at residues with alternate
+  conformations.** On entry 1c75 DSSP's angles differ from STRIDE's and from
+  ours by tens of degrees at a few such residues; ours and STRIDE's agree to
+  the second decimal. The pipeline's rule for alternate conformations is
+  stated at the top of `scripts/data/06_prepare_chains.jl`.
+- **Starting one container per file is slow.** The pipeline starts a few
+  containers and has each process a long list of files.
