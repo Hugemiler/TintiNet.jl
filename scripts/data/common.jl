@@ -60,7 +60,10 @@ end
 # ----------------------------------------------------------------------------
 
 "Print a timestamped progress line."
-say(args...) = println("[", Dates.format(now(), "HH:MM:SS"), "] ", args...)
+function say(args...)
+    println("[", Dates.format(now(), "HH:MM:SS"), "] ", args...)
+    flush(stdout)          # so progress shows up promptly in log files
+end
 
 # ----------------------------------------------------------------------------
 # Tables
