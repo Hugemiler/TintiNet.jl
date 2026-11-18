@@ -26,6 +26,36 @@ const LOGS_DIR  = joinpath(WORK_DIR, "logs")
 const DATA_DIR  = joinpath(REPO_ROOT, "data")       # constructed sets (gitignored)
 
 # ----------------------------------------------------------------------------
+# External tools (one Docker image each; see dockerfiles/)
+# ----------------------------------------------------------------------------
+
+const DSSP_IMAGE     = "tintinet/dssp:4.4.10"
+const STRIDE_IMAGE   = "tintinet/stride:5e0db42"
+const MMSEQS_IMAGE   = "tintinet/mmseqs2:18-8cc5c"
+const FOLDSEEK_IMAGE = "tintinet/foldseek:10-941cd33"
+
+"""
+    in_container(image, arguments...; shell = false) -> Cmd
+
+The command that runs a tool inside its container, with `work/` mounted at
+`/work` (so paths in `arguments` are relative to `work/`) and files written as
+the current user, not root.
+
+With `shell = true` the single argument is a shell script to run inside the
+container, instead of arguments for the tool. That lets one container process
+many files, which is much faster than starting one container per file.
+"""
+function in_container(image, arguments...; shell = false)
+    user  = strip(read(`id -u`, String)) * ":" * strip(read(`id -g`, String))
+    mount = WORK_DIR * ":/work"
+    if shell
+        return `docker run --rm -u $user -v $mount --entrypoint sh $image -c $(only(arguments))`
+    else
+        return `docker run --rm -u $user -v $mount $image $arguments`
+    end
+end
+
+# ----------------------------------------------------------------------------
 # Talking to the person running the script
 # ----------------------------------------------------------------------------
 
