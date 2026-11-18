@@ -105,3 +105,36 @@ end
 
 "SHA-256 of a file, as a lowercase hex string."
 sha256_of(path) = open(io -> bytes2hex(sha256(io)), path)
+
+# ----------------------------------------------------------------------------
+# Running a tool over many files
+# ----------------------------------------------------------------------------
+
+"""
+    run_in_workers(image, shell_script, items, list_folder; workers)
+
+Split `items` (one text line each) into `workers` lists, save each list under
+`list_folder`, and start one container per list. Inside the container the
+script is run with the variable LIST set to its list file (relative to work/),
+so a script typically reads
+
+    while read item; do ... ; done < "\$LIST"
+
+One container handles thousands of files. Starting a container per file would
+spend most of the time starting containers.
+"""
+function run_in_workers(image, shell_script, items, list_folder; workers)
+    isempty(items) && return
+    mkpath(list_folder)
+    workers = min(workers, length(items))
+    # Deal the items out like cards, so every worker gets a similar mix.
+    lists = [items[k:workers:end] for k in 1:workers]
+
+    @sync for (k, list) in enumerate(lists)
+        list_file = joinpath(list_folder, "worker_$(k).txt")
+        write(list_file, join(list, '\n') * "\n")
+        relative = relpath(list_file, WORK_DIR)
+        script = "LIST='$relative'\n" * shell_script
+        @async run(in_container(image, script; shell = true))
+    end
+end
