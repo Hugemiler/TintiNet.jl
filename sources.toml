@@ -1,0 +1,146 @@
+# sources.toml — every piece of raw data this project downloads, declared here.
+#
+# Nothing is downloaded unless it has an entry in this file.
+# `scripts/data/01_fetch_sources.jl` reads this file and saves each source
+# under work/raw/<file>.
+#
+# Fields
+#   url      where to download from
+#   file     where to save it, relative to work/raw/
+#   purpose  why we need it, in one line
+#   licence  terms as far as we know them (check before redistributing)
+#   enabled  true = fetched by default; false = declared but not ready yet
+#   sha256   optional. If present, the download must match it.
+#            Leave it out for files that change every week (the PDB indexes).
+#   note     optional free text
+#
+# The per-entry structure files (one mmCIF per PDB entry) are NOT listed here:
+# there are too many. They are chosen by 04_index_chains.jl and downloaded by
+# 05_fetch_structures.jl from the base URL in [pdb_structures].
+
+
+# ----------------------------------------------------------------------------
+# Protein Data Bank: what exists, and when
+# ----------------------------------------------------------------------------
+
+[pdb_entry_types]
+url     = "https://files.wwpdb.org/pub/pdb/derived_data/pdb_entry_type.txt"
+file    = "pdb/pdb_entry_type.txt"
+purpose = "For every PDB entry: protein / nucleic acid, and experimental method."
+licence = "wwPDB, CC0"
+enabled = true
+
+[pdb_entries_index]
+url     = "https://files.wwpdb.org/pub/pdb/derived_data/index/entries.idx"
+file    = "pdb/entries.idx"
+purpose = "For every PDB entry: deposition date and resolution."
+licence = "wwPDB, CC0"
+enabled = true
+
+[pdb_seqres]
+url     = "https://files.wwpdb.org/pub/pdb/derived_data/pdb_seqres.txt.gz"
+file    = "pdb/pdb_seqres.txt.gz"
+purpose = "The full sequence of every chain in the PDB."
+licence = "wwPDB, CC0"
+enabled = true
+
+[pdb_structures]
+url     = "https://files.wwpdb.org/pub/pdb/data/structures/divided/mmCIF"
+file    = "mmCIF"
+purpose = "Base URL for per-entry structure files. Used by 05_fetch_structures.jl."
+licence = "wwPDB, CC0"
+enabled = false
+note    = "Not a single file. Entry 1abc lives at <url>/ab/1abc.cif.gz"
+
+[rcsb_graphql]
+url     = "https://data.rcsb.org/graphql"
+file    = "pdb/release_dates"
+purpose = "Release date of each entry. Used by 03_fetch_release_dates.jl."
+licence = "RCSB PDB, CC0"
+enabled = false
+note    = "A web service, queried in batches. The flat files above only carry the deposition date, and the big models' training cutoffs are defined on release date."
+
+
+# ----------------------------------------------------------------------------
+# CATH: fold classification (used for superfamily hold-out and fold-class slices)
+# ----------------------------------------------------------------------------
+
+[cath_domain_list]
+url     = "https://download.cathdb.info/cath/releases/all-releases/v4_4_0/cath-classification-data/cath-domain-list-v4_4_0.txt"
+file    = "cath/cath-domain-list-v4_4_0.txt"
+purpose = "Class / architecture / topology / superfamily for every CATH domain."
+licence = "CATH, CC BY 4.0"
+enabled = true
+
+[cath_domain_boundaries]
+url     = "https://download.cathdb.info/cath/releases/all-releases/v4_4_0/cath-classification-data/cath-domain-boundaries-seqreschopping-v4_4_0.txt"
+file    = "cath/cath-domain-boundaries-seqreschopping-v4_4_0.txt"
+purpose = "Where each CATH domain starts and ends within its chain."
+licence = "CATH, CC BY 4.0"
+enabled = true
+
+[cath_names]
+url     = "https://download.cathdb.info/cath/releases/all-releases/v4_4_0/cath-classification-data/cath-names-v4_4_0.txt"
+file    = "cath/cath-names-v4_4_0.txt"
+purpose = "Human-readable names for CATH classes, architectures, topologies and superfamilies."
+licence = "CATH, CC BY 4.0"
+enabled = true
+
+[cath_s40_list]
+url     = "https://download.cathdb.info/cath/releases/all-releases/v4_4_0/non-redundant-data-sets/cath-dataset-nonredundant-S40-v4_4_0.list"
+file    = "cath/cath-dataset-nonredundant-S40-v4_4_0.list"
+purpose = "CATH's own non-redundant domain list at 40% identity. Reference only: lets us compare our selection with the set v1 was trained on."
+licence = "CATH, CC BY 4.0"
+enabled = true
+
+[sifts_chain_cath]
+url     = "https://ftp.ebi.ac.uk/pub/databases/msd/sifts/flatfiles/csv/pdb_chain_cath_uniprot.csv.gz"
+file    = "sifts/pdb_chain_cath_uniprot.csv.gz"
+purpose = "Which CATH domains and UniProt entry each PDB chain maps to."
+licence = "EMBL-EBI SIFTS, free to use"
+enabled = true
+
+
+# ----------------------------------------------------------------------------
+# Benchmarks and edge-case sets — declared, not ready to fetch.
+# Each needs its exact download location confirmed before it is enabled.
+# ----------------------------------------------------------------------------
+
+[chimera_predictions]
+url     = "https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/DYEBVM"
+file    = "chimeras/predictions.zip"
+purpose = "Vedula et al. 2025: AF2 / AF3 / ESM3 predictions and reference peptides for about 3,200 peptide-scaffold fusions."
+licence = "CC0 1.0"
+enabled = false
+note    = "The URL is the landing page. The direct file link for predictions.zip (1.2 GB) still has to be looked up. msas.zip (1.8 GB) is in the same dataset."
+
+[fold_switchers_2021]
+url     = "https://github.com/porterll/extant_fold_switchers"
+file    = "foldswitch/extant_fold_switchers"
+purpose = "Mishra, Looger & Porter 2021: 99 fold switchers with switching-region boundaries, plus single-fold controls."
+licence = "not checked"
+enabled = false
+note    = "A git repository. Decide whether to pin a commit and fetch its archive."
+
+[fold_switchers_2024]
+url     = "https://github.com/ncbi/AF2_benchmark"
+file    = "foldswitch/AF2_benchmark"
+purpose = "Chakravarty et al. 2024: 92 fold-switching pairs with inside / outside training-set labels."
+licence = "not checked"
+enabled = false
+note    = "A git repository. The list itself is in the paper's Supplementary Data 1."
+
+[isoforms]
+url     = "https://github.com/HWaymentSteele/Isoforms_benchmark_2024"
+file    = "isoforms/Isoforms_benchmark_2024"
+purpose = "Zhang et al. 2024: 18 domain-splitting isoforms."
+licence = "not checked"
+enabled = false
+
+[legacy_benchmarks]
+url     = "https://services.healthtech.dtu.dk/services/NetSurfP-2.0/"
+file    = "benchmarks/netsurfp2"
+purpose = "CB513, TS115 and CASP12 as distributed with NetSurfP-2.0, for comparison with published numbers."
+licence = "not checked"
+enabled = false
+note    = "Location and format not verified. We may prefer to rebuild these from PDB identifiers so they go through the same pipeline as everything else."
